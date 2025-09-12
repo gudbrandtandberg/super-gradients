@@ -153,6 +153,10 @@ def create_transforms(FLIP_INDEXES, IMAGE_SIZE):
     
     return train_transforms,val_transforms
 
+
+def collate_fn(batch):
+    return [sample["image"] for sample in batch]
+
 if __name__ == "__main__":
     
     # Load tables  # TODO: create tables
@@ -287,15 +291,22 @@ if __name__ == "__main__":
     best_model = models.get(Models.YOLO_NAS_POSE_S, num_classes=NUM_JOINTS, checkpoint_path=os.path.join(trainer.checkpoints_dir_path, "ckpt_best.pth"))
     predictor = tlc.Predictor(best_model, call_fn="predict", disable_preprocess=True)
 
-    def collate_fn(batch):
-        return [sample["image"] for sample in batch]
-
     tlc.collect_metrics(
         val_table, 
         SuperGradientsPoseMetricsCollector(val_table),
         predictor,
         split="val",
-        constants={"epoch": trainer.epoch_num},
-        dataloader_args={"batch_size": 4, "collate_fn": collate_fn},
+        constants={"epoch": trainer.max_epochs},
+        dataloader_args={"batch_size": 32, "collate_fn": collate_fn, "num_workers": 8, "persistent_workers": True},
+        collect_aggregates=False,
+    )
+
+    tlc.collect_metrics(
+        train_table, 
+        SuperGradientsPoseMetricsCollector(val_table),
+        predictor,
+        split="train",
+        constants={"epoch": trainer.max_epochs},
+        dataloader_args={"batch_size": 32, "collate_fn": collate_fn, "num_workers": 8, "persistent_workers": True},
         collect_aggregates=False,
     )
