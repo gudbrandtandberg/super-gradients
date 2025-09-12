@@ -190,7 +190,11 @@ if __name__ == "__main__":
     yolo_nas_pose = models.get(Models.YOLO_NAS_POSE_S, num_classes=NUM_JOINTS, pretrained_weights="coco_pose").cuda()
 
     # Instantiate the trainer
-    trainer = Trainer(experiment_name="training-animalpose-yolo-nas-pose-3lc-1", ckpt_root_dir=CHECKPOINT_DIR)
+    trainer = Trainer(
+        experiment_name="training-animalpose-yolo-nas-pose-3lc-1",
+        ckpt_root_dir=CHECKPOINT_DIR,
+        device="cuda"
+    )
 
     # Create callbacks
     post_prediction_callback = YoloNASPosePostPredictionCallback(
@@ -237,7 +241,7 @@ if __name__ == "__main__":
         "initial_lr": 5e-4,
         "lr_mode": "cosine",
         "cosine_final_lr_ratio": 0.05,
-        "max_epochs": 50,
+        "max_epochs": 5,
         "zero_weight_decay_on_bias_and_bn": True,
         "batch_accumulate": 1,
         "average_best_models": True,
@@ -270,26 +274,32 @@ if __name__ == "__main__":
     }
 
     # Train the model
-    trainer.train(model=yolo_nas_pose, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
-
-    # Load the best model
-    best_model = models.get(Models.YOLO_NAS_POSE_S, num_classes=NUM_JOINTS, checkpoint_path=os.path.join(trainer.checkpoints_dir_path, "ckpt_best.pth"))
-
-    print(f"Best model checkpoint saved to {os.path.join(trainer.checkpoints_dir_path, 'ckpt_best.pth')}")
-
-    # Test the model
-    post_prediction_callback = YoloNASPosePostPredictionCallback(
-        pose_confidence_threshold=0.01,
-        nms_iou_threshold=0.7,
-        pre_nms_max_predictions=300,
-        post_nms_max_predictions=30,
+    trainer.train(
+        model=yolo_nas_pose,
+        training_params=train_params,
+        train_loader=train_dataloader,
+        valid_loader=val_dataloader
     )
 
-    metrics = PoseEstimationMetrics(
-        num_joints=NUM_JOINTS,
-        oks_sigmas=OKS_SIGMAS,
-        max_objects_per_image=30,
-        post_prediction_callback=post_prediction_callback,
-    )
 
-    trainer.test(model=best_model, test_loader=val_dataloader, test_metrics_list=metrics)
+    # # Load the best model
+    # best_model = models.get(Models.YOLO_NAS_POSE_S, num_classes=NUM_JOINTS, checkpoint_path=os.path.join(trainer.checkpoints_dir_path, "ckpt_best.pth"))
+
+    # print(f"Best model checkpoint saved to {os.path.join(trainer.checkpoints_dir_path, 'ckpt_best.pth')}")
+
+    # # Test the model
+    # post_prediction_callback = YoloNASPosePostPredictionCallback(
+    #     pose_confidence_threshold=0.01,
+    #     nms_iou_threshold=0.7,
+    #     pre_nms_max_predictions=300,
+    #     post_nms_max_predictions=30,
+    # )
+
+    # metrics = PoseEstimationMetrics(
+    #     num_joints=NUM_JOINTS,
+    #     oks_sigmas=OKS_SIGMAS,
+    #     max_objects_per_image=30,
+    #     post_prediction_callback=post_prediction_callback,
+    # )
+
+    # trainer.test(model=best_model, test_loader=val_dataloader, test_metrics_list=metrics)
