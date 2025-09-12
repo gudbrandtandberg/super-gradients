@@ -12,6 +12,8 @@ best_model: YoloNASPose_S = models.get(Models.YOLO_NAS_POSE_S, num_classes=20, c
 
 if __name__ == "__main__":
 
+    tlc.init(project_name="animalpose")
+    
     train_table = Table.from_url("C:/Users/gudbrand/AppData/Local/3LC/3LC/projects/animalpose/datasets/animalpose/tables/train")
     val_table = Table.from_url("C:/Users/gudbrand/AppData/Local/3LC/3LC/projects/animalpose/datasets/animalpose/tables/val")
 
@@ -29,4 +31,11 @@ if __name__ == "__main__":
         collect_aggregates=False,
     )
 
-    assert True
+    tlc.collect_metrics(
+        train_table, 
+        SuperGradientsPoseMetricsCollector(val_table),
+        predictor,
+        split="val",
+        dataloader_args={"batch_size": 4, "collate_fn": collate_fn},
+        collect_aggregates=False,
+    )

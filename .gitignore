@@ -192,3 +192,4 @@ docs/.doctrees
 # End of https://www.toptal.com/developers/gitignore/api/linux,macos,python
 
 notebooks/checkpoints/
+checkpoints/

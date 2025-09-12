@@ -21,11 +21,12 @@ from super_gradients.training.models.pose_estimation_models.yolo_nas_pose import
 from super_gradients.training.utils.callbacks import ExtremeBatchPoseEstimationVisualizationCallback, Phase
 from super_gradients.training.utils.early_stopping import EarlyStop
 from super_gradients.training.metrics import PoseEstimationMetrics
-
-# from sklearn.model_selection import train_test_split
-
+from tlc_callbacks import TLCLoggingCallback
 from tlc_pose_dataset import TLCPoseEstimationDataset
 from tlc.core import Table
+import tlc
+from pose_metrics_collector import SuperGradientsPoseMetricsCollector
+
 sys.stdout = stdout
 
 # Constants
@@ -120,7 +121,7 @@ def create_transforms(FLIP_INDEXES, IMAGE_SIZE):
     keypoints_random_horizontal_flip = KeypointsRandomHorizontalFlip(flip_index=FLIP_INDEXES, prob=0.5)
     keypoints_hsv = KeypointsHSV(prob=0.5, hgain=20, sgain=20, vgain=20)
     keypoints_brightness_contrast = KeypointsBrightnessContrast(prob=0.5, brightness_range=[0.8, 1.2], contrast_range=[0.8, 1.2])
-    keypoints_mosaic = KeypointsMosaic(prob=0.8)
+    # keypoints_mosaic = KeypointsMosaic(prob=0.8)
     keypoints_random_affine_transform = KeypointsRandomAffineTransform(
     max_rotation=0, min_scale=0.5, max_scale=1.5, max_translate=0.1, image_pad_value=127, mask_pad_value=1, prob=0.75, interpolation_mode=[0, 1, 2, 3, 4]
 )
@@ -193,7 +194,6 @@ if __name__ == "__main__":
     trainer = Trainer(
         experiment_name="training-animalpose-yolo-nas-pose-3lc-1",
         ckpt_root_dir=CHECKPOINT_DIR,
-        device="cuda"
     )
 
     # Create callbacks
@@ -233,6 +233,8 @@ if __name__ == "__main__":
         verbose=True,
     )
 
+    tlc_logging_callback = TLCLoggingCallback()
+
     # Create training params
     train_params = {
         "warmup_mode": "LinearBatchLRWarmup",
@@ -267,7 +269,7 @@ if __name__ == "__main__":
         "mixed_precision": True,
         "sync_bn": False,
         "valid_metrics_list": [metrics],
-        "phase_callbacks": [visualization_callback, early_stop],
+        "phase_callbacks": [visualization_callback, early_stop, tlc_logging_callback],
         "pre_prediction_callback": None,
         "metric_to_watch": "AP",
         "greater_metric_to_watch_is_better": True,
@@ -281,25 +283,19 @@ if __name__ == "__main__":
         valid_loader=val_dataloader
     )
 
+    # Collect per-sample metrics on validation set using best model
+    best_model = models.get(Models.YOLO_NAS_POSE_S, num_classes=NUM_JOINTS, checkpoint_path=os.path.join(trainer.checkpoints_dir_path, "ckpt_best.pth"))
+    predictor = tlc.Predictor(best_model, call_fn="predict", disable_preprocess=True)
 
-    # # Load the best model
-    # best_model = models.get(Models.YOLO_NAS_POSE_S, num_classes=NUM_JOINTS, checkpoint_path=os.path.join(trainer.checkpoints_dir_path, "ckpt_best.pth"))
+    def collate_fn(batch):
+        return [sample["image"] for sample in batch]
 
-    # print(f"Best model checkpoint saved to {os.path.join(trainer.checkpoints_dir_path, 'ckpt_best.pth')}")
-
-    # # Test the model
-    # post_prediction_callback = YoloNASPosePostPredictionCallback(
-    #     pose_confidence_threshold=0.01,
-    #     nms_iou_threshold=0.7,
-    #     pre_nms_max_predictions=300,
-    #     post_nms_max_predictions=30,
-    # )
-
-    # metrics = PoseEstimationMetrics(
-    #     num_joints=NUM_JOINTS,
-    #     oks_sigmas=OKS_SIGMAS,
-    #     max_objects_per_image=30,
-    #     post_prediction_callback=post_prediction_callback,
-    # )
-
-    # trainer.test(model=best_model, test_loader=val_dataloader, test_metrics_list=metrics)
+    tlc.collect_metrics(
+        val_table, 
+        SuperGradientsPoseMetricsCollector(val_table),
+        predictor,
+        split="val",
+        constants={"epoch": trainer.epoch_num},
+        dataloader_args={"batch_size": 4, "collate_fn": collate_fn},
+        collect_aggregates=False,
+    )
