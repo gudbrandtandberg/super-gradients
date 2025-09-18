@@ -199,14 +199,14 @@ if __name__ == "__main__":
     post_prediction_callback = YoloNASPosePostPredictionCallback(
         pose_confidence_threshold=0.01,
         nms_iou_threshold=0.7,
-        pre_nms_max_predictions=300,
-        post_nms_max_predictions=30,
+        pre_nms_max_predictions=100,
+        post_nms_max_predictions=15,
     )
 
     metrics = PoseEstimationMetrics(
         num_joints=NUM_JOINTS,
         oks_sigmas=OKS_SIGMAS,
-        max_objects_per_image=30,
+        max_objects_per_image=15,
         post_prediction_callback=post_prediction_callback,
     )
 
@@ -292,7 +292,7 @@ if __name__ == "__main__":
         predictor,
         split="val",
         constants={"epoch": trainer.max_epochs},
-        dataloader_args={"batch_size": 32, "collate_fn": metrics_collection_collate_fn, "num_workers": 8, "persistent_workers": True},
+        dataloader_args={"batch_size": 32, "collate_fn": metrics_collection_collate_fn, "num_workers": 4, "persistent_workers": True},
         collect_aggregates=False,
     )
 
@@ -302,6 +302,7 @@ if __name__ == "__main__":
         predictor,
         split="train",
         constants={"epoch": trainer.max_epochs},
-        dataloader_args={"batch_size": 32, "collate_fn": metrics_collection_collate_fn, "num_workers": 8, "persistent_workers": True},
+        dataloader_args={"batch_size": 32, "collate_fn": metrics_collection_collate_fn, "num_workers": 4, "persistent_workers": True},
         collect_aggregates=False,
     )
+

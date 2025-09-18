@@ -9,7 +9,6 @@ from super_gradients.training.samples import PoseEstimationSample
 from super_gradients.training.datasets.pose_estimation_datasets.abstract_pose_estimation_dataset import AbstractPoseEstimationDataset
 from tlc.core.builtins.types import KeypointHelper
 import cv2
-import numpy as np
 
 def hex_to_rgb(hex_color):
     """hex_color is a string like #RRGGBB"""
