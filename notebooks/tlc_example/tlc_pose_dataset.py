@@ -7,7 +7,7 @@ from super_gradients.common.factories.transforms_factory import TransformsFactor
 from super_gradients.training.transforms.keypoint_transforms import AbstractKeypointTransform
 from super_gradients.training.samples import PoseEstimationSample
 from super_gradients.training.datasets.pose_estimation_datasets.abstract_pose_estimation_dataset import AbstractPoseEstimationDataset
-from tlc.core import GeometryHelper
+from tlc.core.builtins.types import KeypointHelper
 import cv2
 import numpy as np
 
@@ -35,10 +35,10 @@ class TLCPoseEstimationDataset(AbstractPoseEstimationDataset):
         """
         self.table = table
 
-        keypoint_attributes = GeometryHelper.get_keypoint_attributes_from_table(table, "keypoints_2d")
+        keypoint_attributes = KeypointHelper.get_keypoint_attributes_from_table(table, "keypoints_2d")
         keypoint_colors = [hex_to_rgb(keypoint_attribute["display_color"]) for keypoint_attribute in keypoint_attributes]
         keypoint_names = [keypoint_attribute["internal_name"] for keypoint_attribute in keypoint_attributes]
-        lines_attributes = GeometryHelper.get_line_attributes_from_table(table, "keypoints_2d")
+        lines_attributes = KeypointHelper.get_line_attributes_from_table(table, "keypoints_2d")
         edge_colors = [hex_to_rgb(line_attribute["display_color"]) for line_attribute in lines_attributes]
         skeleton = np.array(table.rows_schema["keypoints_2d"]["instances"]["lines"].default_value).reshape(-1, 2).tolist()
 
