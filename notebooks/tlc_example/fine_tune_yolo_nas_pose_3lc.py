@@ -56,9 +56,7 @@ KEYPOINT_NAMES = [
     "withers",
     "tailbase",
 ]
-
 NUM_JOINTS = len(KEYPOINT_NAMES)
-
 KEYPOINT_COLORS = [
     [148, 0, 211],
     [75, 0, 130],
@@ -80,7 +78,6 @@ KEYPOINT_COLORS = [
     [0, 255, 0],
     [255, 69, 0],
 ]
-
 EDGE_LINKS = [
     [0, 1],
     [0, 2],
@@ -98,7 +95,6 @@ EDGE_LINKS = [
     [11, 15],
     [12, 16],
 ]
-
 EDGE_COLORS = [
     [127, 0, 255],
     [91, 56, 253],
@@ -117,17 +113,17 @@ EDGE_COLORS = [
     [255, 0, 0],
 ]
 
-def create_transforms(FLIP_INDEXES, IMAGE_SIZE):
-    keypoints_random_horizontal_flip = KeypointsRandomHorizontalFlip(flip_index=FLIP_INDEXES, prob=0.5)
+def create_transforms(flip_indexes, image_size):
+    keypoints_random_horizontal_flip = KeypointsRandomHorizontalFlip(flip_index=flip_indexes, prob=0.5)
     keypoints_hsv = KeypointsHSV(prob=0.5, hgain=20, sgain=20, vgain=20)
     keypoints_brightness_contrast = KeypointsBrightnessContrast(prob=0.5, brightness_range=[0.8, 1.2], contrast_range=[0.8, 1.2])
     # keypoints_mosaic = KeypointsMosaic(prob=0.8)
     keypoints_random_affine_transform = KeypointsRandomAffineTransform(
     max_rotation=0, min_scale=0.5, max_scale=1.5, max_translate=0.1, image_pad_value=127, mask_pad_value=1, prob=0.75, interpolation_mode=[0, 1, 2, 3, 4]
 )
-    keypoints_longest_max_size = KeypointsLongestMaxSize(max_height=IMAGE_SIZE, max_width=IMAGE_SIZE)
+    keypoints_longest_max_size = KeypointsLongestMaxSize(max_height=image_size, max_width=image_size)
     keypoints_pad_if_needed = KeypointsPadIfNeeded(
-    min_height=IMAGE_SIZE, min_width=IMAGE_SIZE, image_pad_value=[127, 127, 127], mask_pad_value=1, padding_mode="bottom_right"
+    min_height=image_size, min_width=image_size, image_pad_value=[127, 127, 127], mask_pad_value=1, padding_mode="bottom_right"
 )
     keypoints_image_standardize = KeypointsImageStandardize(max_value=255)
     keypoints_remove_small_objects = KeypointsRemoveSmallObjects(min_instance_area=1, min_visible_keypoints=1)
@@ -153,8 +149,7 @@ def create_transforms(FLIP_INDEXES, IMAGE_SIZE):
     
     return train_transforms,val_transforms
 
-
-def collate_fn(batch):
+def metrics_collection_collate_fn(batch):
     return [sample["image"] for sample in batch]
 
 if __name__ == "__main__":
@@ -196,7 +191,7 @@ if __name__ == "__main__":
 
     # Instantiate the trainer
     trainer = Trainer(
-        experiment_name="training-animalpose-yolo-nas-pose-3lc-1",
+        experiment_name="training-animalpose-yolo-nas-pose-3lc-2",
         ckpt_root_dir=CHECKPOINT_DIR,
     )
 
@@ -237,7 +232,7 @@ if __name__ == "__main__":
         verbose=True,
     )
 
-    tlc_logging_callback = TLCLoggingCallback()
+    tlc_logging_callback = TLCLoggingCallback(project_name="animalpose")
 
     # Create training params
     train_params = {
@@ -297,7 +292,7 @@ if __name__ == "__main__":
         predictor,
         split="val",
         constants={"epoch": trainer.max_epochs},
-        dataloader_args={"batch_size": 32, "collate_fn": collate_fn, "num_workers": 8, "persistent_workers": True},
+        dataloader_args={"batch_size": 32, "collate_fn": metrics_collection_collate_fn, "num_workers": 8, "persistent_workers": True},
         collect_aggregates=False,
     )
 
@@ -307,6 +302,6 @@ if __name__ == "__main__":
         predictor,
         split="train",
         constants={"epoch": trainer.max_epochs},
-        dataloader_args={"batch_size": 32, "collate_fn": collate_fn, "num_workers": 8, "persistent_workers": True},
+        dataloader_args={"batch_size": 32, "collate_fn": metrics_collection_collate_fn, "num_workers": 8, "persistent_workers": True},
         collect_aggregates=False,
     )

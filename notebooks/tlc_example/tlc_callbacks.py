@@ -1,8 +1,68 @@
 from super_gradients.training.utils.callbacks import PhaseContext, Callback
 from super_gradients.common.environment.ddp_utils import multi_process_safe
 import tlc
+import json
+import dataclasses
+from enum import Enum
+from collections.abc import Mapping
+from super_gradients.training.utils.utils import HpmStruct
+
+def to_jsonable(obj):
+    # primitives
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+
+    # enums
+    if isinstance(obj, Enum):
+        return obj.name
+
+    # numpy scalars/arrays (lazy import to avoid hard dep)
+    try:
+        import numpy as np
+        if isinstance(obj, np.generic):
+            return obj.item()
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+    except Exception:
+        pass
+
+    # torch tensors (shouldn’t normally appear in TrainingParams, but safe-guard)
+    try:
+        import torch
+        if isinstance(obj, torch.Tensor):
+            return obj.detach().cpu().tolist()
+    except Exception:
+        pass
+
+    # dataclasses
+    if dataclasses.is_dataclass(obj):
+        return {k: to_jsonable(v) for k, v in dataclasses.asdict(obj).items()}
+
+    # HpmStruct / TrainingParams
+    if isinstance(obj, HpmStruct):
+        return {k: to_jsonable(v) for k, v in obj.to_dict(include_schema=False).items()}
+
+    # mappings
+    if isinstance(obj, Mapping):
+        return {str(k): to_jsonable(v) for k, v in obj.items()}
+
+    # sequences and sets
+    if isinstance(obj, (list, tuple, set)):
+        return [to_jsonable(v) for v in obj]
+
+    # callables/classes/modules -> stable identifiers
+    if callable(obj):
+        name = getattr(obj, "__name__", None)
+        mod = getattr(obj, "__module__", None)
+        if name and mod:
+            return f"{mod}.{name}"
+        return repr(obj)
+
+    # fallback to string representation
+    return repr(obj)
 class TLCLoggingCallback(Callback):
-    def __init__(self):
+    def __init__(self, project_name: str):
+        self.project_name = project_name
         super().__init__()
     
     @multi_process_safe
@@ -28,18 +88,16 @@ class TLCLoggingCallback(Callback):
         The corresponding Phase enum value for this event is Phase.PRE_TRAINING.
         :param context:
         """
-        if run := tlc.active_run():
-            self.run = run
-        else:
-            self.run = tlc.init(project_name="animalpose")
+        
+        self.run = tlc.active_run() or tlc.init(project_name=self.project_name, run_name=context.experiment_name)
         
         self.run.set_parameters(
             {
                 "experiment_name": context.experiment_name,
-                "ckpt_dir": context.ckpt_dir
+                "ckpt_dir": context.ckpt_dir,
+                "training_params": to_jsonable(context.training_params)
             }
         )
-        # TODO: log training parameters, etc.
 
     def on_train_loader_start(self, context: PhaseContext) -> None:
         """
@@ -301,7 +359,11 @@ class TLCLoggingCallback(Callback):
         The corresponding Phase enum value for this event is Phase.TRAIN_EPOCH_END.
         :param context:
         """
-        self.run.add_output_value(context.metrics_dict)
+        metrics_dict = {
+            f"train_{key}": value for key, value in context.metrics_dict.items()
+        }
+        metrics_dict["epoch"] = context.epoch
+        self.run.add_output_value(metrics_dict)
 
     def on_validation_loader_start(self, context: PhaseContext) -> None:
         """
@@ -425,7 +487,11 @@ class TLCLoggingCallback(Callback):
         The corresponding Phase enum value for this event is Phase.VALIDATION_EPOCH_END.
         :param context:
         """
-        self.run.add_output_value(context.metrics_dict)
+        metrics_dict = {
+            f"val_{key}": value for key, value in context.metrics_dict.items()
+        }
+        metrics_dict["epoch"] = context.epoch
+        self.run.add_output_value(metrics_dict)
 
     def on_validation_end_best_epoch(self, context: PhaseContext) -> None:
         """

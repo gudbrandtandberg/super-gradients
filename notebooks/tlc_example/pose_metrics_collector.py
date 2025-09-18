@@ -1,7 +1,7 @@
 from super_gradients.training.utils.predict.predictions import PoseEstimationPrediction
 from super_gradients.training.utils.predict.prediction_pose_estimation_results import ImagesPoseEstimationPrediction, ImagePoseEstimationPrediction
 from tlc.core.builtins.schemas import Keypoints2DSchema
-from tlc.core.builtins.types.geometry_helper import GeometryHelper
+from tlc.core.builtins.types.keypoint_helper import KeypointHelper
 import tlc
 from typing import Any
 
@@ -56,8 +56,8 @@ class SuperGradientsPoseMetricsCollector(tlc.MetricsCollector):
                 num_keypoints=20,
                 include_per_point_confidences=True,
                 include_per_object_confidences=True,
-                lines=GeometryHelper.get_lines_from_table(self.table, "keypoints_2d"),
-                line_attributes=GeometryHelper.get_line_attributes_from_table(self.table, "keypoints_2d"),
-                point_attributes=GeometryHelper.get_keypoint_attributes_from_table(self.table, "keypoints_2d"),
+                lines=KeypointHelper.get_lines_from_table(self.table, "keypoints_2d"),
+                line_attributes=KeypointHelper.get_line_attributes_from_table(self.table, "keypoints_2d"),
+                point_attributes=KeypointHelper.get_keypoint_attributes_from_table(self.table, "keypoints_2d"),
             )
         }
